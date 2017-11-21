@@ -200,6 +200,8 @@ def create_conv_model(fingerprint_input, model_settings, is_training):
 
   During training, dropout nodes are introduced after each relu, controlled by a
   placeholder.
+  
+  Xavier initialization and batch normalization is added to make the model more robust.
 
   Args:
     fingerprint_input: TensorFlow node that will output audio feature vectors.
@@ -221,10 +223,12 @@ def create_conv_model(fingerprint_input, model_settings, is_training):
   first_filter_count = 64
   first_weights = tf.get_variable("first_weights", shape=[first_filter_height, first_filter_width, 1, first_filter_count],
                                   initializer=tf.contrib.layers.xavier_initializer())
-  first_bias = tf.Variable(tf.zeros([first_filter_count]))
+  first_bias = tf.get_variable("first_bias", shape=[first_filter_count],
+                               initializer=tf.constant_initializer(0))
   first_conv = tf.nn.conv2d(fingerprint_4d, first_weights, [1, 1, 1, 1],
                             'SAME') + first_bias
-  first_relu = tf.nn.relu(first_conv)
+  first_conv_norm = tf.layers.batch_normalization(first_conv, training=(dropout_prob < .9))
+  first_relu = tf.nn.relu(first_conv_norm)
   if is_training:
     first_dropout = tf.nn.dropout(first_relu, dropout_prob)
   else:
@@ -236,10 +240,12 @@ def create_conv_model(fingerprint_input, model_settings, is_training):
   second_weights = tf.get_variable("second_weights",
                                    shape=[second_filter_height, second_filter_width, first_filter_count, second_filter_count],
                                    initializer=tf.contrib.layers.xavier_initializer())
-  second_bias = tf.Variable(tf.zeros([second_filter_count]))
+  second_bias = tf.get_variable("second_bias", shape=[second_filter_count],
+                               initializer=tf.constant_initializer(0))
   second_conv = tf.nn.conv2d(max_pool, second_weights, [1, 1, 1, 1],
                              'SAME') + second_bias
-  second_relu = tf.nn.relu(second_conv)
+  second_conv_norm = tf.layers.batch_normalization(second_conv, training=(dropout_prob < .9))
+  second_relu = tf.nn.relu(second_conv_norm)
   if is_training:
     second_dropout = tf.nn.dropout(second_relu, dropout_prob)
   else:
@@ -256,7 +262,8 @@ def create_conv_model(fingerprint_input, model_settings, is_training):
   final_fc_weights = tf.get_variable("final_fc_weights",
                                      shape=[second_conv_element_count, label_count], 
                                      initializer=tf.contrib.layers.xavier_initializer())
-  final_fc_bias = tf.Variable(tf.zeros([label_count]))
+  final_fc_bias = tf.get_variable("final_fc_bias", shape=[label_count],
+                               initializer=tf.constant_initializer(0))
   final_fc = tf.matmul(flattened_second_conv, final_fc_weights) + final_fc_bias
   if is_training:
     return final_fc, dropout_prob
