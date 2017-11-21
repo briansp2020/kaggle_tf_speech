@@ -219,10 +219,8 @@ def create_conv_model(fingerprint_input, model_settings, is_training):
   first_filter_width = 8
   first_filter_height = 20
   first_filter_count = 64
-  first_weights = tf.Variable(
-      tf.truncated_normal(
-          [first_filter_height, first_filter_width, 1, first_filter_count],
-          stddev=0.01))
+  first_weights = tf.get_variable("first_weights", shape=[first_filter_height, first_filter_width, 1, first_filter_count],
+                                  initializer=tf.contrib.layers.xavier_initializer())
   first_bias = tf.Variable(tf.zeros([first_filter_count]))
   first_conv = tf.nn.conv2d(fingerprint_4d, first_weights, [1, 1, 1, 1],
                             'SAME') + first_bias
@@ -235,13 +233,9 @@ def create_conv_model(fingerprint_input, model_settings, is_training):
   second_filter_width = 4
   second_filter_height = 10
   second_filter_count = 64
-  second_weights = tf.Variable(
-      tf.truncated_normal(
-          [
-              second_filter_height, second_filter_width, first_filter_count,
-              second_filter_count
-          ],
-          stddev=0.01))
+  second_weights = tf.get_variable("second_weights",
+                                   shape=[second_filter_height, second_filter_width, first_filter_count, second_filter_count],
+                                   initializer=tf.contrib.layers.xavier_initializer())
   second_bias = tf.Variable(tf.zeros([second_filter_count]))
   second_conv = tf.nn.conv2d(max_pool, second_weights, [1, 1, 1, 1],
                              'SAME') + second_bias
@@ -259,9 +253,9 @@ def create_conv_model(fingerprint_input, model_settings, is_training):
   flattened_second_conv = tf.reshape(second_dropout,
                                      [-1, second_conv_element_count])
   label_count = model_settings['label_count']
-  final_fc_weights = tf.Variable(
-      tf.truncated_normal(
-          [second_conv_element_count, label_count], stddev=0.01))
+  final_fc_weights = tf.get_variable("final_fc_weights",
+                                     shape=[second_conv_element_count, label_count], 
+                                     initializer=tf.contrib.layers.xavier_initializer())
   final_fc_bias = tf.Variable(tf.zeros([label_count]))
   final_fc = tf.matmul(flattened_second_conv, final_fc_weights) + final_fc_bias
   if is_training:
