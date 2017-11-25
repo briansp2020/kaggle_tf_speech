@@ -223,10 +223,10 @@ def create_conv_model(fingerprint_input, model_settings, is_training):
   first_filter_count = 64
   first_weights = tf.get_variable("first_weights", shape=[first_filter_height, first_filter_width, 1, first_filter_count],
                                   initializer=tf.contrib.layers.xavier_initializer())
-  first_bias = tf.get_variable("first_bias", shape=[first_filter_count],
-                               initializer=tf.constant_initializer(0))
+  #first_bias = tf.get_variable("first_bias", shape=[first_filter_count],
+  #                             initializer=tf.constant_initializer(0))
   first_conv = tf.nn.conv2d(fingerprint_4d, first_weights, [1, 1, 1, 1],
-                            'SAME') + first_bias
+                            'SAME')# + first_bias
   first_conv_norm = tf.layers.batch_normalization(first_conv, training=(dropout_prob < .9))
   first_relu = tf.nn.relu(first_conv_norm)
   if is_training:
@@ -240,10 +240,10 @@ def create_conv_model(fingerprint_input, model_settings, is_training):
   second_weights = tf.get_variable("second_weights",
                                    shape=[second_filter_height, second_filter_width, first_filter_count, second_filter_count],
                                    initializer=tf.contrib.layers.xavier_initializer())
-  second_bias = tf.get_variable("second_bias", shape=[second_filter_count],
-                               initializer=tf.constant_initializer(0))
+  #second_bias = tf.get_variable("second_bias", shape=[second_filter_count],
+  #                             initializer=tf.constant_initializer(0))
   second_conv = tf.nn.conv2d(max_pool, second_weights, [1, 1, 1, 1],
-                             'SAME') + second_bias
+                             'SAME')# + second_bias
   second_conv_norm = tf.layers.batch_normalization(second_conv, training=(dropout_prob < .9))
   second_relu = tf.nn.relu(second_conv_norm)
   if is_training:
@@ -328,15 +328,14 @@ def create_low_latency_conv_model(fingerprint_input, model_settings,
   first_filter_count = 186
   first_filter_stride_x = 1
   first_filter_stride_y = 4
-  first_weights = tf.Variable(
-      tf.truncated_normal(
-          [first_filter_height, first_filter_width, 1, first_filter_count],
-          stddev=0.01))
-  first_bias = tf.Variable(tf.zeros([first_filter_count]))
+  first_weights = tf.get_variable("first_weights", shape=[first_filter_height, first_filter_width, 1, first_filter_count],
+                                  initializer=tf.contrib.layers.xavier_initializer())
+  #first_bias = tf.Variable(tf.zeros([first_filter_count]))
   first_conv = tf.nn.conv2d(fingerprint_4d, first_weights, [
       1, first_filter_stride_y, first_filter_stride_x, 1
-  ], 'VALID') + first_bias
-  first_relu = tf.nn.relu(first_conv)
+  ], 'VALID') # + first_bias
+  first_conv_norm = tf.layers.batch_normalization(first_conv, training=(dropout_prob < .9))
+  first_relu = tf.nn.relu(first_conv_norm)
   if is_training:
     first_dropout = tf.nn.dropout(first_relu, dropout_prob)
   else:
@@ -352,9 +351,8 @@ def create_low_latency_conv_model(fingerprint_input, model_settings,
   flattened_first_conv = tf.reshape(first_dropout,
                                     [-1, first_conv_element_count])
   first_fc_output_channels = 128
-  first_fc_weights = tf.Variable(
-      tf.truncated_normal(
-          [first_conv_element_count, first_fc_output_channels], stddev=0.01))
+  first_fc_weights = tf.get_variable("first_fc_weights", shape=[first_conv_element_count, first_fc_output_channels],
+                                     initializer=tf.contrib.layers.xavier_initializer())
   first_fc_bias = tf.Variable(tf.zeros([first_fc_output_channels]))
   first_fc = tf.matmul(flattened_first_conv, first_fc_weights) + first_fc_bias
   if is_training:
@@ -362,9 +360,8 @@ def create_low_latency_conv_model(fingerprint_input, model_settings,
   else:
     second_fc_input = first_fc
   second_fc_output_channels = 128
-  second_fc_weights = tf.Variable(
-      tf.truncated_normal(
-          [first_fc_output_channels, second_fc_output_channels], stddev=0.01))
+  second_fc_weights = tf.get_variable("second_fc_weights", shape=[first_fc_output_channels, second_fc_output_channels],
+                                      initializer=tf.contrib.layers.xavier_initializer())
   second_fc_bias = tf.Variable(tf.zeros([second_fc_output_channels]))
   second_fc = tf.matmul(second_fc_input, second_fc_weights) + second_fc_bias
   if is_training:
@@ -372,9 +369,8 @@ def create_low_latency_conv_model(fingerprint_input, model_settings,
   else:
     final_fc_input = second_fc
   label_count = model_settings['label_count']
-  final_fc_weights = tf.Variable(
-      tf.truncated_normal(
-          [second_fc_output_channels, label_count], stddev=0.01))
+  final_fc_weights = tf.get_variable("final_fc_weights", shape=[second_fc_output_channels, label_count],
+                                     initializer=tf.contrib.layers.xavier_initializer())
   final_fc_bias = tf.Variable(tf.zeros([label_count]))
   final_fc = tf.matmul(final_fc_input, final_fc_weights) + final_fc_bias
   if is_training:

@@ -295,6 +295,37 @@ class AudioProcessor(object):
     print (all_words)
     print ("Words in interest :")
     print (self.words_list)
+    
+    print ("Training sample count : {}".format(len(self.data_index['training'])))
+    #print (self.data_index['training'][:10])
+    print ("Testing sample count  : {}".format(len(self.data_index['testing'])))
+    #print (self.data_index['testing'][:10])
+    print ("Validation sample count : {}".format(len(self.data_index['validation'])))
+    #print (self.data_index['validation'][:10])
+    
+  def add_training_data(self, base_path, pseudo_label_data):
+    """Add pseudo-labeled data to training list.
+
+    Args:
+      base_path: Path to the unlabeled data.
+      pseudo_label_data: list of unlabeled data with its pseudo label.
+
+    Returns:
+      None. Internal variable data_index is modified to contain the psedo label data.
+
+    Raises:
+      Exception: None.
+    """
+    for item in pseudo_label_data:
+        if item[1] in self.word_to_index:
+            self.data_index['training'].append({'label': item[1], 'file': os.path.join(base_path, item[0])})
+
+    print ("Training sample count : {}".format(len(self.data_index['training'])))
+    #print (self.data_index['training'][:5])
+    print ("Testing sample count  : {}".format(len(self.data_index['testing'])))
+    #print (self.data_index['testing'][:5])
+    print ("Validation sample count : {}".format(len(self.data_index['validation'])))
+    #print (self.data_index['validation'][:5])
 
   def prepare_background_data(self):
     """Searches a folder for background noise audio, and loads it into memory.
