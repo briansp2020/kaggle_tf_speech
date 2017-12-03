@@ -102,6 +102,8 @@ def create_model(fingerprint_input, model_settings, model_architecture,
     return create_conv_model(fingerprint_input, model_settings, is_training)
   elif model_architecture == 'conv2':
     return create_conv2_model(fingerprint_input, model_settings, is_training)
+  elif model_architecture == 'conv3':
+    return create_conv3_model(fingerprint_input, model_settings, is_training)
   elif model_architecture == 'low_latency_conv':
     return create_low_latency_conv_model(fingerprint_input, model_settings,
                                          is_training)
@@ -360,9 +362,9 @@ def create_conv2_model(fingerprint_input, model_settings, is_training):
                                 [third_filter_height, third_filter_width, third_filter_count, third_filter_count],
                                 is_training)
   third_max_pool = tf.nn.max_pool(conv_layer6, [1, 2, 2, 1], [1, 2, 2, 1], 'SAME')
-  third_dropout = tf.nn.dropout(third_max_pool, dropout_prob)
+  #third_dropout = tf.nn.dropout(third_max_pool, dropout_prob)
 
-  third_conv_shape = third_dropout.get_shape()
+  third_conv_shape = third_max_pool.get_shape()
   third_conv_output_width = third_conv_shape[2]
   third_conv_output_height = third_conv_shape[1]
   third_conv_element_count = int(
@@ -377,6 +379,125 @@ def create_conv2_model(fingerprint_input, model_settings, is_training):
   final_fc_bias = tf.get_variable("final_fc_bias", shape=[label_count],
                                   initializer=tf.constant_initializer(0))
   final_fc = tf.matmul(flattened_third_conv, final_fc_weights) + final_fc_bias
+  final_dropout = tf.nn.dropout(final_fc, dropout_prob)
+
+  return final_dropout, dropout_prob
+
+def create_conv3_model(fingerprint_input, model_settings, is_training):
+  """Builds a VGG inspired convolutional model.
+
+  Here's the layout of the graph:
+
+  (fingerprint_input)
+          v
+      [Conv2D, Relu]<-(weights)
+          v
+      [Conv2D, Relu]<-(weights)
+          v
+      [MaxPool]
+          v
+      [Conv2D, Relu]<-(weights)
+          v
+      [Conv2D, Relu]<-(weights)
+          v
+      [MaxPool]
+          v
+      [Conv2D, Relu]<-(weights)
+          v
+      [Conv2D, Relu]<-(weights)
+          v
+      [MaxPool]
+          v
+      [Conv2D, Relu]<-(weights)
+          v
+      [Conv2D, Relu]<-(weights)
+          v
+      [MaxPool]
+          v
+      [DropOut]
+          v
+      [MatMul]<-(weights)
+          v
+      [BiasAdd]<-(bias)
+          v
+      [DropOut]
+
+  Args:
+    fingerprint_input: TensorFlow node that will output audio feature vectors.
+    model_settings: Dictionary of information about the model.
+    is_training: Whether the model is going to be used for training.
+
+  Returns:
+    TensorFlow node outputting logits results, and optionally a dropout
+    placeholder.
+  """
+  dropout_prob = tf.placeholder(tf.float32, name='dropout_prob')
+  is_training = (dropout_prob < .9)
+  input_frequency_size = model_settings['dct_coefficient_count']
+  input_time_size = model_settings['spectrogram_length']
+  fingerprint_4d = tf.reshape(fingerprint_input,
+                              [-1, input_time_size, input_frequency_size, 1])
+
+  first_filter_width = 3
+  first_filter_height = 5
+  first_filter_count = 32
+  conv_layer1 = get_conv_layer (fingerprint_4d,
+                                [first_filter_height, first_filter_width, 1, first_filter_count],
+                                is_training)
+  conv_layer2 = get_conv_layer (conv_layer1,
+                                [first_filter_height, first_filter_width, first_filter_count, first_filter_count],
+                                is_training)
+  first_max_pool = tf.nn.max_pool(conv_layer2, [1, 2, 2, 1], [1, 2, 2, 1], 'SAME')
+  
+  second_filter_width = 3
+  second_filter_height = 3
+  second_filter_count = 64
+  conv_layer3 = get_conv_layer (first_max_pool,
+                                [second_filter_height, second_filter_width, first_filter_count, second_filter_count],
+                                is_training)
+  conv_layer4 = get_conv_layer (conv_layer3,
+                                [second_filter_height, second_filter_width, second_filter_count, second_filter_count],
+                                is_training)
+  second_max_pool = tf.nn.max_pool(conv_layer4, [1, 2, 2, 1], [1, 2, 2, 1], 'SAME')
+
+  third_filter_width = 3
+  third_filter_height = 3
+  third_filter_count = 128
+  conv_layer5 = get_conv_layer (second_max_pool,
+                                [third_filter_height, third_filter_width, second_filter_count, third_filter_count],
+                                is_training)
+  conv_layer6 = get_conv_layer (conv_layer5,
+                                [third_filter_height, third_filter_width, third_filter_count, third_filter_count],
+                                is_training)
+  third_max_pool = tf.nn.max_pool(conv_layer6, [1, 2, 2, 1], [1, 2, 2, 1], 'SAME')
+  #third_dropout = tf.nn.dropout(third_max_pool, dropout_prob)
+    
+  fourth_filter_width = 3
+  fourth_filter_height = 3
+  fourth_filter_count = 128
+  conv_layer7 = get_conv_layer (third_max_pool,
+                                [fourth_filter_height, fourth_filter_width, third_filter_count, fourth_filter_count],
+                                is_training)
+  conv_layer8 = get_conv_layer (conv_layer5,
+                                [fourth_filter_height, fourth_filter_width, fourth_filter_count, fourth_filter_count],
+                                is_training)
+  fourth_max_pool = tf.nn.max_pool(conv_layer8, [1, 2, 2, 1], [1, 2, 2, 1], 'SAME')
+
+  fourth_conv_shape = fourth_max_pool.get_shape()
+  fourth_conv_output_width = fourth_conv_shape[2]
+  fourth_conv_output_height = fourth_conv_shape[1]
+  fourth_conv_element_count = int(
+      fourth_conv_output_width * fourth_conv_output_height *
+      fourth_filter_count)
+  flattened_fourth_conv = tf.reshape(fourth_max_pool,
+                                     [-1, fourth_conv_element_count])
+  label_count = model_settings['label_count']
+  final_fc_weights = tf.get_variable("final_fc_weights",
+                                     shape=[fourth_conv_element_count, label_count], 
+                                     initializer=tf.contrib.layers.xavier_initializer())
+  final_fc_bias = tf.get_variable("final_fc_bias", shape=[label_count],
+                                  initializer=tf.constant_initializer(0))
+  final_fc = tf.matmul(flattened_fourth_conv, final_fc_weights) + final_fc_bias
   final_dropout = tf.nn.dropout(final_fc, dropout_prob)
 
   return final_dropout, dropout_prob

@@ -291,6 +291,7 @@ class AudioProcessor(object):
       else:
         self.word_to_index[word] = UNKNOWN_WORD_INDEX
     self.word_to_index[SILENCE_LABEL] = SILENCE_INDEX
+    self.word_to_index[UNKNOWN_WORD_LABEL] = UNKNOWN_WORD_INDEX
     print ("Words to work with :")
     print (all_words)
     print ("Words in interest :")
@@ -319,6 +320,8 @@ class AudioProcessor(object):
     for item in pseudo_label_data:
         if item[1] in self.word_to_index:
             self.data_index['training'].append({'label': item[1], 'file': os.path.join(base_path, item[0])})
+        else:
+            self.data_index['training'].append({'label': UNKNOWN_WORD_LABEL, 'file': os.path.join(base_path, item[0])})
 
     print ("Training sample count : {}".format(len(self.data_index['training'])))
     #print (self.data_index['training'][:5])
